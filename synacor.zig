@@ -46,14 +46,21 @@ pub fn main() !void {
 
     const stdout = std.io.getStdOut().outStream();
     const stdin = std.io.getStdIn().inStream();
-    const file = try std.fs.cwd().openFile("challenge.bin", .{});
-    defer file.close();
-    const file_size = try file.getEndPos();
-    _ = try file.read(raw[0..file_size]);
+
+    const source = try std.fs.cwd().openFile("challenge.bin", .{});
+    defer source.close();
+
+    var history_file: [21]u8 = undefined;
+    _ = try std.fmt.bufPrint(history_file[0..], "{}.{}", .{ "history", std.time.milliTimestamp() });
+    const history = try std.fs.cwd().createFile(&history_file, .{});
+    defer history.close();
+
+    const source_size = try source.getEndPos();
+    _ = try source.read(raw[0..source_size]);
 
     var i: usize = 0;
 
-    while (i <= file_size) : (i += 2) {
+    while (i <= source_size) : (i += 2) {
         memory[i / 2] = (@intCast(u16, raw[i + 1]) << 8) | (raw[i] & 0xff);
     }
 
@@ -179,8 +186,11 @@ pub fn main() !void {
             },
             // in
             20 => blk: {
-                registers[a_] = try stdin.readByte();
+                var input = try stdin.readByte();
+                registers[a_] = input;
                 i += 2;
+
+                _ = try history.write(&[1]u8{input});
             },
             // noop
             21 => i += 1,
