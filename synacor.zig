@@ -1,6 +1,6 @@
 const std = @import("std");
 
-fn arg(memory: var, registers: var, index: usize) u16 {
+fn arg(memory: anytype, registers: anytype, index: usize) u16 {
     const value = memory[index];
 
     if (value < 32768) {
@@ -88,34 +88,34 @@ pub fn main() !void {
             // halt
             0 => break,
             // set
-            1 => blk: {
+            1 => {
                 registers[a_] = b;
                 i += 3;
             },
             // push
-            2 => blk: {
+            2 => {
                 stack.push(a);
                 i += 2;
             },
             // pop
-            3 => blk: {
+            3 => {
                 registers[a_] = stack.pop();
                 i += 2;
             },
             // eq
-            4 => blk: {
+            4 => {
                 registers[a_] = @boolToInt(b == c);
                 i += 4;
             },
             // gt
-            5 => blk: {
+            5 => {
                 registers[a_] = @boolToInt(b > c);
                 i += 4;
             },
             // jmp
             6 => i = a,
             // jt
-            7 => blk: {
+            7 => {
                 if (a != 0) {
                     i = b;
                 } else {
@@ -123,7 +123,7 @@ pub fn main() !void {
                 }
             },
             // jf
-            8 => blk: {
+            8 => {
                 if (a == 0) {
                     i = b;
                 } else {
@@ -131,61 +131,61 @@ pub fn main() !void {
                 }
             },
             // add
-            9 => blk: {
+            9 => {
                 registers[a_] = mod(b + c);
                 i += 4;
             },
             // mult
-            10 => blk: {
+            10 => {
                 registers[a_] = @intCast(u16, (@intCast(u32, b) * @intCast(u32, c)) % 32768);
                 i += 4;
             },
             // mod
-            11 => blk: {
+            11 => {
                 registers[a_] = mod(b % c);
                 i += 4;
             },
             // and
-            12 => blk: {
+            12 => {
                 registers[a_] = b & c;
                 i += 4;
             },
             // or
-            13 => blk: {
+            13 => {
                 registers[a_] = b | c;
                 i += 4;
             },
             // not
-            14 => blk: {
+            14 => {
                 registers[a_] = mod(~b);
                 i += 3;
             },
             // rmem
-            15 => blk: {
+            15 => {
                 registers[a_] = memory[b];
                 i += 3;
             },
             // wmem
-            16 => blk: {
+            16 => {
                 memory[a] = b;
                 i += 3;
             },
             // call
-            17 => blk: {
+            17 => {
                 stack.push(@intCast(u16, i + 2));
                 i = a;
             },
             // ret
-            18 => blk: {
+            18 => {
                 i = stack.pop();
             },
             // out
-            19 => blk: {
+            19 => {
                 _ = try std.fmt.formatAsciiChar(@intCast(u8, a), .{}, stdout);
                 i += 2;
             },
             // in
-            20 => blk: {
+            20 => {
                 var input = try stdin.readByte();
                 registers[a_] = input;
                 i += 2;
@@ -194,7 +194,7 @@ pub fn main() !void {
             },
             // noop
             21 => i += 1,
-            else => blk: {
+            else => {
                 try stdout.print("unhandled opcode: {}\n", .{opcode});
                 break;
             },
