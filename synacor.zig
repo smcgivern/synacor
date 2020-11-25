@@ -1,19 +1,5 @@
 const std = @import("std");
 
-fn arg(memory: anytype, registers: anytype, index: usize) u16 {
-    const value = memory[index];
-
-    if (value < 32768) {
-        return value;
-    } else {
-        return registers[value - 32768];
-    }
-}
-
-fn mod(value: u16) u16 {
-    return value % 32768;
-}
-
 const Stack = struct {
     head: usize = 0,
     values: [65536]u16 = undefined,
@@ -37,6 +23,44 @@ const Stack = struct {
     }
 };
 
+fn arg(memory: anytype, registers: anytype, index: usize) u16 {
+    const value = memory[index];
+
+    if (value < 32768) {
+        return value;
+    } else {
+        return registers[value - 32768];
+    }
+}
+
+fn mod(value: u16) u16 {
+    return value % 32768;
+}
+
+fn getArg(i: u8) []u8 {
+    var args = std.process.args();
+    var j: u8 = 0;
+
+    while (j <= i) : (j += 1) {
+        _ = args.skip();
+    }
+
+    const flag = (args.next(std.heap.page_allocator) orelse "") catch "";
+
+    return flag;
+}
+
+fn historyFile(flag: []u8) ?std.fs.File {
+    if (std.mem.eql(u8, flag, "history")) {
+        var history_filename: [21]u8 = undefined;
+        _ = std.fmt.bufPrint(history_filename[0..], "{}.{}", .{ "history", std.time.milliTimestamp() }) catch unreachable;
+
+        return std.fs.cwd().createFile(&history_filename, .{}) catch unreachable;
+    } else {
+        return undefined;
+    }
+}
+
 pub fn main() !void {
     // 15-bit address space for memory.
     var raw: [65536]u8 = undefined;
@@ -47,13 +71,14 @@ pub fn main() !void {
     const stdout = std.io.getStdOut().outStream();
     const stdin = std.io.getStdIn().inStream();
 
+    var history = historyFile(getArg(0));
+
+    defer if (history) |h| {
+        h.close();
+    };
+
     const source = try std.fs.cwd().openFile("challenge.bin", .{});
     defer source.close();
-
-    var history_file: [21]u8 = undefined;
-    _ = try std.fmt.bufPrint(history_file[0..], "{}.{}", .{ "history", std.time.milliTimestamp() });
-    const history = try std.fs.cwd().createFile(&history_file, .{});
-    defer history.close();
 
     const source_size = try source.getEndPos();
     _ = try source.read(raw[0..source_size]);
@@ -190,7 +215,9 @@ pub fn main() !void {
                 registers[a_] = input;
                 i += 2;
 
-                _ = try history.write(&[1]u8{input});
+                if (history) |h| {
+                    _ = try h.write(&[1]u8{input});
+                }
             },
             // noop
             21 => i += 1,
