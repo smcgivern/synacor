@@ -1,5 +1,11 @@
 const std = @import("std");
 
+// First command-line argument: memory dump (defaults to `challenge.bin`)
+// Second command-line argument: if `history`, writes a history file
+//
+// Memory dump is written when stdin ends (C-d or redirect stdin from history
+// file)
+
 const Stack = struct {
     head: usize = 0,
     values: [65536]u16 = undefined,
@@ -61,9 +67,50 @@ fn historyFile(flag: []u8) ?std.fs.File {
     }
 }
 
+fn sourceFile(flag: []u8) !std.fs.File {
+    if (std.mem.eql(u8, flag, "")) {
+        return std.fs.cwd().openFile("challenge.bin", .{});
+    } else {
+        return std.fs.cwd().openFile(flag, .{});
+    }
+}
+
+fn dump(memory: [32768]u16, registers: [8]u16, stack: Stack, pointer: usize) !void {
+    var memory_filename: [20]u8 = undefined;
+    _ = try std.fmt.bufPrint(memory_filename[0..], "{}.{}", .{ "memory", std.time.milliTimestamp() });
+
+    const file = try std.fs.cwd().createFile(&memory_filename, .{});
+    defer file.close();
+
+    var bytes: [2]u8 = undefined;
+    var pointer_bytes: [8]u8 = undefined;
+
+    for (memory) |item| {
+        std.mem.writeIntSliceLittle(u16, bytes[0..], item);
+        _ = try file.write(&bytes);
+    }
+
+    for (registers) |item| {
+        std.mem.writeIntSliceLittle(u16, bytes[0..], item);
+        _ = try file.write(&bytes);
+    }
+
+    for (stack.values) |item| {
+        std.mem.writeIntSliceLittle(u16, bytes[0..], item);
+        _ = try file.write(&bytes);
+    }
+
+    std.mem.writeIntSliceLittle(usize, pointer_bytes[0..], stack.head);
+    _ = try file.write(&pointer_bytes);
+
+    std.mem.writeIntSliceLittle(usize, pointer_bytes[0..], pointer);
+    _ = try file.write(&pointer_bytes);
+}
+
 pub fn main() !void {
+    // Memory + registers + stack + stack head + pointer
+    var raw: [196640]u8 = undefined;
     // 15-bit address space for memory.
-    var raw: [65536]u8 = undefined;
     var memory: [32768]u16 = undefined;
     var registers = [_]u16{0} ** 8;
     var stack = Stack{};
@@ -71,13 +118,13 @@ pub fn main() !void {
     const stdout = std.io.getStdOut().outStream();
     const stdin = std.io.getStdIn().inStream();
 
-    var history = historyFile(getArg(0));
+    var history = historyFile(getArg(1));
 
     defer if (history) |h| {
         h.close();
     };
 
-    const source = try std.fs.cwd().openFile("challenge.bin", .{});
+    const source = try sourceFile(getArg(0));
     defer source.close();
 
     const source_size = try source.getEndPos();
@@ -85,11 +132,26 @@ pub fn main() !void {
 
     var i: usize = 0;
 
-    while (i <= source_size) : (i += 2) {
-        memory[i / 2] = (@intCast(u16, raw[i + 1]) << 8) | (raw[i] & 0xff);
+    while (i < std.math.min(source_size, 65536)) : (i += 2) {
+        memory[i / 2] = std.mem.readIntSliceLittle(u16, raw[i .. i + 2]);
     }
 
-    i = 0;
+    if (source_size > 65536) {
+        // Dump
+        while (i < std.math.min(source_size, 65536 + 16)) : (i += 2) {
+            registers[(i - 65536) / 2] = std.mem.readIntSliceLittle(u16, raw[i .. i + 2]);
+        }
+
+        while (i < std.math.min(source_size, (65536 * 3) + 16)) : (i += 2) {
+            stack.values[(i - 65536 - 16) / 2] = std.mem.readIntSliceLittle(u16, raw[i .. i + 2]);
+        }
+
+        stack.head = std.mem.readIntSliceLittle(usize, raw[i .. i + 8]);
+        i = std.mem.readIntSliceLittle(usize, raw[i + 8 .. i + 16]);
+    } else {
+        // Initial challenge
+        i = 0;
+    }
 
     var opcode: u16 = 0;
     var a_: u16 = 0;
@@ -211,12 +273,16 @@ pub fn main() !void {
             },
             // in
             20 => {
-                var input = try stdin.readByte();
-                registers[a_] = input;
-                i += 2;
+                if (stdin.readByte()) |input| {
+                    registers[a_] = input;
+                    i += 2;
 
-                if (history) |h| {
-                    _ = try h.write(&[1]u8{input});
+                    if (history) |h| {
+                        _ = try h.write(&[1]u8{input});
+                    }
+                } else |err| {
+                    try dump(memory, registers, stack, i);
+                    return err;
                 }
             },
             // noop
