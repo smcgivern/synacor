@@ -71,7 +71,7 @@ fn mod(value: u16) u16 {
     return value % 32768;
 }
 
-fn getArg(i: u8) []u8 {
+fn argv(i: u8) []u8 {
     var args = std.process.args();
     var j: u8 = 0;
 
@@ -174,12 +174,12 @@ pub fn main() !void {
     var memory: [32768]u16 = undefined;
     var registers = [_]u16{0} ** 8;
     var stack = Stack{};
-    var i = try load(getArg(0), &memory, &registers, &stack);
+    var i = try load(argv(0), &memory, &registers, &stack);
 
     const stdout = std.io.getStdOut().outStream();
     const stderr = std.io.getStdErr().outStream();
     const stdin = std.io.getStdIn().inStream();
-    const cmd = getArg(1);
+    const cmd = argv(1);
     const explain = std.mem.eql(u8, cmd, "explain");
 
     const history = historyFile(cmd);
