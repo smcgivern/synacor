@@ -107,24 +107,11 @@ fn dump(memory: [32768]u16, registers: [8]u16, stack: Stack, pointer: usize) !vo
     _ = try file.write(&pointer_bytes);
 }
 
-pub fn main() !void {
+fn load(flag: []u8, memory: *[32768]u16, registers: *[8]u16, stack: *Stack) !usize {
     // Memory + registers + stack + stack head + pointer
     var raw: [196640]u8 = undefined;
-    // 15-bit address space for memory.
-    var memory: [32768]u16 = undefined;
-    var registers = [_]u16{0} ** 8;
-    var stack = Stack{};
 
-    const stdout = std.io.getStdOut().outStream();
-    const stdin = std.io.getStdIn().inStream();
-
-    var history = historyFile(getArg(1));
-
-    defer if (history) |h| {
-        h.close();
-    };
-
-    const source = try sourceFile(getArg(0));
+    const source = try sourceFile(flag);
     defer source.close();
 
     const source_size = try source.getEndPos();
@@ -147,12 +134,29 @@ pub fn main() !void {
         }
 
         stack.head = std.mem.readIntSliceLittle(usize, raw[i .. i + 8]);
-        i = std.mem.readIntSliceLittle(usize, raw[i + 8 .. i + 16]);
+        return std.mem.readIntSliceLittle(usize, raw[i + 8 .. i + 16]);
     } else {
         // Initial challenge
-        i = 0;
+        return 0;
     }
+}
 
+pub fn main() !void {
+    // 15-bit address space for memory.
+    var memory: [32768]u16 = undefined;
+    var registers = [_]u16{0} ** 8;
+    var stack = Stack{};
+
+    const stdout = std.io.getStdOut().outStream();
+    const stdin = std.io.getStdIn().inStream();
+
+    var history = historyFile(getArg(1));
+
+    defer if (history) |h| {
+        h.close();
+    };
+
+    var i = try load(getArg(0), &memory, &registers, &stack);
     var opcode: u16 = 0;
     var a_: u16 = 0;
     var a: u16 = 0;
