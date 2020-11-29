@@ -41,7 +41,7 @@ fn arg(memory: anytype, registers: anytype, index: usize) u16 {
     }
 }
 
-fn explainArg(memory: anytype, registers: anytype, index: usize) []u8 {
+fn explainArg(memory: anytype, index: usize) []u8 {
     const value = memory[index];
 
     if (value < 32768) {
@@ -51,7 +51,7 @@ fn explainArg(memory: anytype, registers: anytype, index: usize) []u8 {
     }
 }
 
-fn printExplain(cmd: anytype, explain: bool, stream: anytype, memory: anytype, registers: anytype, i: usize, args: usize) !void {
+fn printExplain(cmd: anytype, explain: bool, stream: anytype, memory: anytype, i: usize, args: usize) !void {
     if (!explain) {
         return;
     }
@@ -59,11 +59,11 @@ fn printExplain(cmd: anytype, explain: bool, stream: anytype, memory: anytype, r
     if (args == 0) {
         try stream.print("{}\n", .{cmd});
     } else if (args == 1) {
-        try stream.print("{} {}\n", .{ cmd, explainArg(memory, registers, i + 1) });
+        try stream.print("{} {}\n", .{ cmd, explainArg(memory, i + 1) });
     } else if (args == 2) {
-        try stream.print("{} {} {}\n", .{ cmd, explainArg(memory, registers, i + 1), explainArg(memory, registers, i + 2) });
+        try stream.print("{} {} {}\n", .{ cmd, explainArg(memory, i + 1), explainArg(memory, i + 2) });
     } else if (args == 3) {
-        try stream.print("{} {} {} {}\n", .{ cmd, explainArg(memory, registers, i + 1), explainArg(memory, registers, i + 2), explainArg(memory, registers, i + 3) });
+        try stream.print("{} {} {} {}\n", .{ cmd, explainArg(memory, i + 1), explainArg(memory, i + 2), explainArg(memory, i + 3) });
     }
 }
 
@@ -206,54 +206,54 @@ pub fn main() !void {
         switch (opcode) {
             // halt
             0 => {
-                try printExplain("halt", explain, stderr, memory, registers, i, 0);
+                try printExplain("halt", explain, stderr, memory, i, 0);
 
                 break;
             },
             // set
             1 => {
-                try printExplain("set", explain, stderr, memory, registers, i, 2);
+                try printExplain("set", explain, stderr, memory, i, 2);
 
                 registers[a_] = b;
                 i += 3;
             },
             // push
             2 => {
-                try printExplain("push", explain, stderr, memory, registers, i, 1);
+                try printExplain("push", explain, stderr, memory, i, 1);
 
                 stack.push(a);
                 i += 2;
             },
             // pop
             3 => {
-                try printExplain("pop", explain, stderr, memory, registers, i, 1);
+                try printExplain("pop", explain, stderr, memory, i, 1);
 
                 registers[a_] = stack.pop();
                 i += 2;
             },
             // eq
             4 => {
-                try printExplain("eq", explain, stderr, memory, registers, i, 3);
+                try printExplain("eq", explain, stderr, memory, i, 3);
 
                 registers[a_] = @boolToInt(b == c);
                 i += 4;
             },
             // gt
             5 => {
-                try printExplain("gt", explain, stderr, memory, registers, i, 3);
+                try printExplain("gt", explain, stderr, memory, i, 3);
 
                 registers[a_] = @boolToInt(b > c);
                 i += 4;
             },
             // jmp
             6 => {
-                try printExplain("jmp", explain, stderr, memory, registers, i, 1);
+                try printExplain("jmp", explain, stderr, memory, i, 1);
 
                 i = a;
             },
             // jt
             7 => {
-                try printExplain("jt", explain, stderr, memory, registers, i, 2);
+                try printExplain("jt", explain, stderr, memory, i, 2);
 
                 if (a != 0) {
                     i = b;
@@ -263,7 +263,7 @@ pub fn main() !void {
             },
             // jf
             8 => {
-                try printExplain("jf", explain, stderr, memory, registers, i, 2);
+                try printExplain("jf", explain, stderr, memory, i, 2);
 
                 if (a == 0) {
                     i = b;
@@ -273,83 +273,83 @@ pub fn main() !void {
             },
             // add
             9 => {
-                try printExplain("add", explain, stderr, memory, registers, i, 3);
+                try printExplain("add", explain, stderr, memory, i, 3);
 
                 registers[a_] = mod(b + c);
                 i += 4;
             },
             // mult
             10 => {
-                try printExplain("mult", explain, stderr, memory, registers, i, 3);
+                try printExplain("mult", explain, stderr, memory, i, 3);
 
                 registers[a_] = @intCast(u16, (@intCast(u32, b) * @intCast(u32, c)) % 32768);
                 i += 4;
             },
             // mod
             11 => {
-                try printExplain("mod", explain, stderr, memory, registers, i, 3);
+                try printExplain("mod", explain, stderr, memory, i, 3);
 
                 registers[a_] = mod(b % c);
                 i += 4;
             },
             // and
             12 => {
-                try printExplain("and", explain, stderr, memory, registers, i, 3);
+                try printExplain("and", explain, stderr, memory, i, 3);
 
                 registers[a_] = b & c;
                 i += 4;
             },
             // or
             13 => {
-                try printExplain("or", explain, stderr, memory, registers, i, 3);
+                try printExplain("or", explain, stderr, memory, i, 3);
 
                 registers[a_] = b | c;
                 i += 4;
             },
             // not
             14 => {
-                try printExplain("not", explain, stderr, memory, registers, i, 2);
+                try printExplain("not", explain, stderr, memory, i, 2);
 
                 registers[a_] = mod(~b);
                 i += 3;
             },
             // rmem
             15 => {
-                try printExplain("rmem", explain, stderr, memory, registers, i, 2);
+                try printExplain("rmem", explain, stderr, memory, i, 2);
 
                 registers[a_] = memory[b];
                 i += 3;
             },
             // wmem
             16 => {
-                try printExplain("wmem", explain, stderr, memory, registers, i, 2);
+                try printExplain("wmem", explain, stderr, memory, i, 2);
 
                 memory[a] = b;
                 i += 3;
             },
             // call
             17 => {
-                try printExplain("call", explain, stderr, memory, registers, i, 1);
+                try printExplain("call", explain, stderr, memory, i, 1);
 
                 stack.push(@intCast(u16, i + 2));
                 i = a;
             },
             // ret
             18 => {
-                try printExplain("ret", explain, stderr, memory, registers, i, 0);
+                try printExplain("ret", explain, stderr, memory, i, 0);
 
                 i = stack.pop();
             },
             // out
             19 => {
-                try printExplain("out", explain, stderr, memory, registers, i, 1);
+                try printExplain("out", explain, stderr, memory, i, 1);
 
                 _ = try std.fmt.formatAsciiChar(@intCast(u8, a), .{}, stdout);
                 i += 2;
             },
             // in
             20 => {
-                try printExplain("in", explain, stderr, memory, registers, i, 1);
+                try printExplain("in", explain, stderr, memory, i, 1);
 
                 if (stdin.readByte()) |input| {
                     registers[a_] = input;
@@ -366,7 +366,7 @@ pub fn main() !void {
             },
             // noop
             21 => {
-                try printExplain("noop", explain, stderr, memory, registers, i, 0);
+                try printExplain("noop", explain, stderr, memory, i, 0);
 
                 i += 1;
             },
