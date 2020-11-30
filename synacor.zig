@@ -193,6 +193,8 @@ pub fn main() !void {
     var b: u16 = 0;
     var c: u16 = 0;
 
+    registers[7] = 1;
+
     while (true) {
         opcode = memory[i];
         a = arg(memory, registers, i + 1);
@@ -331,8 +333,14 @@ pub fn main() !void {
             17 => {
                 try printExplain("call", explain, stderr, memory, i, 1);
 
-                stack.push(@intCast(u16, i + 2));
-                i = a;
+                if (a == 6027) {
+                    registers[0] = 6;
+
+                    i = i + 2;
+                } else {
+                    stack.push(@intCast(u16, i + 2));
+                    i = a;
+                }
             },
             // ret
             18 => {
