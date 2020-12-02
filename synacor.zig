@@ -193,8 +193,6 @@ pub fn main() !void {
     var b: u16 = 0;
     var c: u16 = 0;
 
-    registers[7] = 1;
-
     while (true) {
         opcode = memory[i];
         a = arg(memory, registers, i + 1);
@@ -335,6 +333,7 @@ pub fn main() !void {
 
                 if (a == 6027) {
                     registers[0] = 6;
+                    registers[7] = 25734;
 
                     i = i + 2;
                 } else {
